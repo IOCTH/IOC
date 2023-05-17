@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 
-
 import requests
 from datetime import date
 from datetime import timedelta
@@ -16,10 +15,11 @@ import base64
 def main():
     today = date.today()
     yesterday = today - timedelta(days = 1)
-    filename="URL_IOC_"+str(datetime.today())+".txt"
+    filename="URL_IOC_"+str(datetime.today().strftime('%Y-%m-%d %H'))+".txt"
     
     check_if_files_exists("msg_content.txt")
     check_if_files_exists("URL_list.txt")
+    check_if_files_exists("URL_list_last24h.txt")
     check_if_files_exists(filename)
     # Get the current date and time
     now = datetime.now()
@@ -49,11 +49,13 @@ def main():
         tag_to_search=i
         get_info_from_urlhaus(tag_to_search,response_json_urlhaus,yesterday,today, dates,filename)
        
-    webhook_url="https://**************************.webhook.office.com/"
+    webhook_url="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
     content=read_txtfile("msg_content.txt")
     title= str(datetime.today()) + " Results"
     color="000000"
     send_teams_message(webhook_url, content, title, color)
+    
+
     
 def get_info_from_urlhaus(tag_to_search,response_json_urlhaus, yesterday,today, dates,filename):
     print("")
@@ -229,18 +231,21 @@ def extract_urls(all_data_list,filename,tag_to_search):
         url_list.append(final_domain_name)
         
     for line in url_list:
-        print (line, file=open("URL_list.txt", "a",encoding='utf8'))
+        print (line, file=open(filename, "a",encoding='utf8'))
+    
+
     upload_to_github(url_list,filename,tag_to_search)
+    extract_urls_last24h(all_data_list,tag_to_search)
 
 def upload_to_github(url_list,filename,tag_to_search):
-    githubAPIURL = "https://api.github.com/repos/tit0017/IOC/contents/"+tag_to_search+"{}".format(filename)
+    githubAPIURL = "https://api.github.com/repos/tit0017/IOC/contents/"+tag_to_search+"_{}".format(filename)
 # Replace "bracketcounters" with your username, replace "test-repo" with your repository name and replace "new-image.png" with the filename you want to upload from local to GitHub.
 
 # Paste your API token here
-    githubToken = "ghp_************************"
+    githubToken = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
 
-    with open("URL_list.txt", "rb") as f:
+    with open(filename, "rb") as f:
         # Encoding "my-local-image.jpg" to base64 format
         encodedData = base64.b64encode(f.read())
     
@@ -255,5 +260,55 @@ def upload_to_github(url_list,filename,tag_to_search):
     
         r = requests.put(githubAPIURL, headers=headers, json=data)
 
+def extract_urls_last24h(all_data_list,tag_to_search):
+    now = datetime.now()
+    dates=[]
+    unique_url=[]
+    filename="URL_list_last24h_"+str(datetime.today().strftime('%Y-%m-%d %H'))+".txt"
+    # Print the date and time for each of the past 24 hours
+    for i in range(24):
+    # Subtract one hour from the current time for each iteration
+        past_time = now - timedelta(hours=i)
+        # Format the date and time in a readable string format
+        date_str = past_time.strftime('%Y-%m-%d %H')
+        dates.append(date_str)
+    url_list=[] 
+    print(dates)
+    for date in dates:
+        print(date)
+        for data in all_data_list:
+            if date in data:
+                print (data)
+                data_aux=data.split("\'url\': \'")
+                data_aux_2=str(data_aux[1]).split(",")
+                
+            
+                urls = re.findall('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', data_aux_2[0])
+                found_url = urls[0]
+                info = tldextract.extract(found_url)
+                domain_name = info.domain
+                suffix_name = info.suffix
+                final_domain_name  = domain_name+"."+suffix_name
+                if final_domain_name[-1]==".":
+                    final_domain_name=final_domain_name[:-1]
+                else:
+                    pass
+                url_list.append(final_domain_name)
+                print(final_domain_name)
+            else:
+                pass
+    print(len(url_list))
+    for x in url_list:
+        if x in unique_url:
+            pass
+        else:
+            unique_url.append(x)
+    print(len(unique_url))    
+    for line in unique_url:
+        print (line, file=open(filename, "a",encoding='utf8'))
+    
+
+    
+    upload_to_github(unique_url,filename,tag_to_search)    
 if __name__ == "__main__":
     main()
